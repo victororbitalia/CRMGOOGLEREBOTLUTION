@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx tsx scripts/validate-env.ts && vite",
-    "build": "npx tsx scripts/validate-env.ts && vite build",
-    "preview": "vite preview",
+    "dev": "npx tsx scripts/validate-env.ts && npx vite",
+    "build": "npx tsx scripts/validate-env.ts && npx vite build",
+    "preview": "npx vite preview",
     "validate-env": "npx tsx scripts/validate-env.ts",
     "validate-deployment": "npx tsx scripts/validate-deployment.ts",
     "db": "npx tsx database/cli.ts",
