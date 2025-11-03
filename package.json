@@ -4,16 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx scripts/validate-env.ts && vite",
-    "build": "tsx scripts/validate-env.ts && vite build",
+    "dev": "npx tsx scripts/validate-env.ts && vite",
+    "build": "npx tsx scripts/validate-env.ts && vite build",
     "preview": "vite preview",
-    "validate-env": "tsx scripts/validate-env.ts",
-    "validate-deployment": "tsx scripts/validate-deployment.ts",
-    "db": "tsx database/cli.ts",
-    "db:migrate": "tsx database/cli.ts migrate",
-    "db:rollback": "tsx database/cli.ts rollback",
-    "db:status": "tsx database/cli.ts status",
-    "db:reset": "tsx database/cli.ts reset"
+    "validate-env": "npx tsx scripts/validate-env.ts",
+    "validate-deployment": "npx tsx scripts/validate-deployment.ts",
+    "db": "npx tsx database/cli.ts",
+    "db:migrate": "npx tsx database/cli.ts migrate",
+    "db:rollback": "npx tsx database/cli.ts rollback",
+    "db:status": "npx tsx database/cli.ts status",
+    "db:reset": "npx tsx database/cli.ts reset"
   },
   "dependencies": {
     "react-dom": "^19.2.0",
