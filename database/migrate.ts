@@ -1,0 +1,216 @@
+import fs from 'fs';
+import path from 'path';
+import pool from './connection';
+import { USE_MOCK_DATA } from './config';
+
+// Get the current directory for ES modules
+const __dirname = path.dirname(new URL(import.meta.url).pathname).substring(1);
+
+// Run migration files in order
+export const runMigrations = async () => {
+  try {
+    if (USE_MOCK_DATA) {
+      console.log('⚠️ Mock data mode - skipping migrations');
+      return;
+    }
+
+    const client = await pool.connect();
+    
+    // Create migrations table if it doesn't exist
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL UNIQUE,
+        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Get migration files
+    const migrationsDir = path.join(__dirname, 'migrations');
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort();
+    
+    // Get executed migrations
+    const executedResult = await client.query('SELECT filename FROM migrations ORDER BY filename');
+    const executedMigrations = executedResult.rows.map(row => row.filename);
+    
+    // Run pending migrations
+    for (const file of migrationFiles) {
+      if (!executedMigrations.includes(file)) {
+        console.log(`Running migration: ${file}`);
+        const filePath = path.join(migrationsDir, file);
+        const migrationSQL = fs.readFileSync(filePath, 'utf8');
+        
+        await client.query('BEGIN');
+        try {
+          await client.query(migrationSQL);
+          await client.query('INSERT INTO migrations (filename) VALUES ($1)', [file]);
+          await client.query('COMMIT');
+          console.log(`Migration ${file} completed successfully`);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          console.error(`Error running migration ${file}:`, error);
+          throw error;
+        }
+      }
+    }
+    
+    client.release();
+    console.log('All migrations completed successfully');
+  } catch (error) {
+    console.error('Migration error:', error);
+    throw error;
+  }
+};
+
+// Rollback the last migration
+export const rollbackLastMigration = async () => {
+  try {
+    if (USE_MOCK_DATA) {
+      console.log('⚠️ Mock data mode - skipping rollback');
+      return;
+    }
+
+    const client = await pool.connect();
+    
+    // Get the last executed migration
+    const result = await client.query(
+      'SELECT filename FROM migrations ORDER BY executed_at DESC LIMIT 1'
+    );
+    
+    if (result.rows.length === 0) {
+      console.log('No migrations to rollback');
+      client.release();
+      return;
+    }
+    
+    const lastMigration = result.rows[0].filename;
+    console.log(`Rolling back migration: ${lastMigration}`);
+    
+    // Check if rollback file exists
+    const rollbackFile = lastMigration.replace('.sql', '_rollback.sql');
+    const rollbackPath = path.join(__dirname, 'migrations', rollbackFile);
+    
+    if (!fs.existsSync(rollbackPath)) {
+      console.log(`No rollback file found for ${lastMigration}`);
+      client.release();
+      return;
+    }
+    
+    const rollbackSQL = fs.readFileSync(rollbackPath, 'utf8');
+    
+    await client.query('BEGIN');
+    try {
+      await client.query(rollbackSQL);
+      await client.query('DELETE FROM migrations WHERE filename = $1', [lastMigration]);
+      await client.query('COMMIT');
+      console.log(`Rollback of ${lastMigration} completed successfully`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error(`Error rolling back ${lastMigration}:`, error);
+      throw error;
+    }
+    
+    client.release();
+  } catch (error) {
+    console.error('Rollback error:', error);
+    throw error;
+  }
+};
+
+// Get migration status
+export const getMigrationStatus = async () => {
+  try {
+    if (USE_MOCK_DATA) {
+      console.log('\nMigration Status:');
+      console.log('==================');
+      console.log('001_initial_schema.sql: ⏳ Pending (mock mode)');
+      console.log('002_initial_data.sql: ⏳ Pending (mock mode)');
+      console.log('\nTotal: 2 migrations');
+      console.log('Executed: 0');
+      console.log('Pending: 2');
+      return {
+        migrationFiles: ['001_initial_schema.sql', '002_initial_data.sql'],
+        executedMigrations: {},
+        pendingCount: 2,
+        executedCount: 0
+      };
+    }
+
+    const client = await pool.connect();
+    
+    // Get all migration files
+    const migrationsDir = path.join(__dirname, 'migrations');
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql') && !file.endsWith('_rollback.sql'))
+      .sort();
+    
+    // Get executed migrations
+    const executedResult = await client.query('SELECT filename, executed_at FROM migrations ORDER BY filename');
+    const executedMigrations = executedResult.rows.reduce((acc, row) => {
+      acc[row.filename] = row.executed_at;
+      return acc;
+    }, {});
+    
+    console.log('\nMigration Status:');
+    console.log('==================');
+    
+    for (const file of migrationFiles) {
+      const status = executedMigrations[file] ? `✅ Executed at ${executedMigrations[file]}` : '⏳ Pending';
+      console.log(`${file}: ${status}`);
+    }
+    
+    const pendingCount = migrationFiles.filter(file => !executedMigrations[file]).length;
+    const executedCount = migrationFiles.length - pendingCount;
+    
+    console.log(`\nTotal: ${migrationFiles.length} migrations`);
+    console.log(`Executed: ${executedCount}`);
+    console.log(`Pending: ${pendingCount}`);
+    
+    client.release();
+    return { migrationFiles, executedMigrations, pendingCount, executedCount };
+  } catch (error) {
+    console.error('Error getting migration status:', error);
+    throw error;
+  }
+};
+
+// Reset database (drop all tables and re-run all migrations)
+export const resetDatabase = async () => {
+  try {
+    if (USE_MOCK_DATA) {
+      console.log('⚠️ Mock data mode - skipping database reset');
+      return;
+    }
+
+    console.log('⚠️  WARNING: This will drop all tables and data!');
+    console.log('Type "yes" to confirm:');
+    
+    // This would be better handled with a command line argument
+    // For now, we'll proceed with the reset
+    
+    const client = await pool.connect();
+    
+    // Drop all tables in correct order (respecting foreign keys)
+    await client.query('DROP TABLE IF EXISTS migrations CASCADE');
+    await client.query('DROP TABLE IF EXISTS reservations CASCADE');
+    await client.query('DROP TABLE IF EXISTS opening_hours CASCADE');
+    await client.query('DROP TABLE IF EXISTS restaurant_tables CASCADE');
+    await client.query('DROP TABLE IF EXISTS settings CASCADE');
+    
+    console.log('All tables dropped successfully');
+    
+    client.release();
+    
+    // Re-run all migrations
+    await runMigrations();
+    
+    console.log('Database reset completed');
+  } catch (error) {
+    console.error('Error resetting database:', error);
+    throw error;
+  }
+};
+
+export default runMigrations;

@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Servicio de base de datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-crm_db}
+      POSTGRES_USER: ${DB_USER:-crm_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-crm_password}
+    # No exponer puerto de PostgreSQL al host por seguridad
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - crm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-crm_user} -d ${DB_NAME:-crm_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Límites de recursos para seguridad
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Servicio de la aplicación CRM
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crm-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-crm_user}:${DB_PASSWORD:-crm_password}@postgres:5432/${DB_NAME:-crm_db}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-crm_db}
+      DB_USER: ${DB_USER:-crm_user}
+      DB_PASSWORD: ${DB_PASSWORD:-crm_password}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-CHANGE_THIS_IN_PRODUCTION}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - crm-network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Límites de recursos para seguridad
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  crm-network:
+    driver: bridge

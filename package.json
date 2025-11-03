@@ -1,0 +1,33 @@
+{
+  "name": "rebotlution-crm",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx scripts/validate-env.ts && vite",
+    "build": "tsx scripts/validate-env.ts && vite build",
+    "preview": "vite preview",
+    "validate-env": "tsx scripts/validate-env.ts",
+    "validate-deployment": "tsx scripts/validate-deployment.ts",
+    "db": "tsx database/cli.ts",
+    "db:migrate": "tsx database/cli.ts migrate",
+    "db:rollback": "tsx database/cli.ts rollback",
+    "db:status": "tsx database/cli.ts status",
+    "db:reset": "tsx database/cli.ts reset"
+  },
+  "dependencies": {
+    "react-dom": "^19.2.0",
+    "recharts": "^3.3.0",
+    "react": "^19.2.0",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/pg": "^8.11.10",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.3",
+    "vite": "^6.2.1"
+  }
+}
