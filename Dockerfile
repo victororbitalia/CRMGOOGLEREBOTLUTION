@@ -1,6 +1,16 @@
 # Etapa de construcción
 FROM node:18-alpine AS builder
 
+# Declarar argumentos de construcción
+ARG DATABASE_URL
+ARG NODE_ENV
+ARG NEXT_PUBLIC_APP_URL
+
+# Convertir ARG en variables de entorno para la etapa de construcción
+ENV DATABASE_URL=${DATABASE_URL}
+ENV NODE_ENV=${NODE_ENV}
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+
 # Establecer el directorio de trabajo
 WORKDIR /app
 
@@ -18,6 +28,16 @@ RUN npm run build
 
 # Etapa de producción
 FROM node:18-alpine AS production
+
+# Declarar argumentos de construcción para la etapa de producción
+ARG DATABASE_URL
+ARG NODE_ENV
+ARG NEXT_PUBLIC_APP_URL
+
+# Convertir ARG en variables de entorno para la etapa de producción
+ENV DATABASE_URL=${DATABASE_URL}
+ENV NODE_ENV=${NODE_ENV}
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 # Instalar dependencias adicionales para producción
 RUN apk add --no-cache dumb-init postgresql-client
