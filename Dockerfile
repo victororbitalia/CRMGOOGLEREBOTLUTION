@@ -53,7 +53,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar todas las dependencias
-RUN npm ci && npm cache clean --force
+RUN npm ci --include=dev && npm cache clean --force
 
 # Copiar los archivos construidos desde la etapa de construcción
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
