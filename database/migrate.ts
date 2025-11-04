@@ -43,6 +43,8 @@ const splitSqlStatements = (sql: string): string[] => {
   let currentStatement = '';
   let inString = false;
   let stringChar = '';
+  let inDollarString = false;
+  let dollarStringTag = '';
   let inComment = false;
   let inLineComment = false;
   let parenLevel = 0;
@@ -52,8 +54,59 @@ const splitSqlStatements = (sql: string): string[] => {
     const nextChar = sql[i + 1];
     const prevChar = sql[i - 1];
     
-    // Handle string literals
-    if (!inComment && !inLineComment && (char === "'" || char === '"')) {
+    // Handle dollar-quoted strings (PostgreSQL syntax)
+    if (!inComment && !inLineComment && !inString && char === '$') {
+      if (!inDollarString) {
+        // Look ahead to find the complete dollar delimiter for starting a string
+        let j = i + 1;
+        while (j < sql.length && sql[j] !== '$') {
+          j++;
+        }
+        
+        if (j < sql.length && sql[j] === '$') {
+          // Found a complete dollar delimiter (e.g., $$ or $tag$)
+          const dollarTag = sql.substring(i, j + 1);
+          
+          // Check if this could be a parameter reference (like $1, $2, etc.)
+          // Parameter references are digits only, while dollar-quoted strings can contain letters
+          const tagContent = dollarTag.substring(1, dollarTag.length - 1);
+          const isParameterReference = /^\d+$/.test(tagContent);
+          
+          // Additional check: dollar-quoted string tags should not contain special characters
+          // Valid tags are empty ($$) or contain only letters, numbers, and underscores
+          const isValidDollarTag = tagContent === '' || /^[a-zA-Z0-9_]+$/.test(tagContent);
+          
+          if (!isParameterReference && isValidDollarTag) {
+            // Starting a dollar-quoted string
+            inDollarString = true;
+            dollarStringTag = dollarTag;
+            currentStatement += dollarTag;
+            i = j; // Skip to the end of the delimiter
+            continue;
+          }
+        }
+      } else {
+        // We're inside a dollar-quoted string, look for the matching closing tag
+        const expectedTag = dollarStringTag;
+        const tagLength = expectedTag.length;
+        
+        // Check if the current position matches the expected closing tag
+        if (i + tagLength <= sql.length) {
+          const potentialTag = sql.substring(i, i + tagLength);
+          if (potentialTag === expectedTag) {
+            // Found the matching closing tag
+            inDollarString = false;
+            dollarStringTag = '';
+            currentStatement += potentialTag;
+            i = i + tagLength - 1; // Skip to the end of the delimiter
+            continue;
+          }
+        }
+      }
+    }
+    
+    // Handle regular string literals
+    if (!inComment && !inLineComment && !inDollarString && (char === "'" || char === '"')) {
       if (!inString) {
         inString = true;
         stringChar = char;
@@ -63,8 +116,8 @@ const splitSqlStatements = (sql: string): string[] => {
       }
     }
     
-    // Handle comments
-    if (!inString) {
+    // Handle comments (not inside any type of string)
+    if (!inString && !inDollarString) {
       if (char === '-' && nextChar === '-' && !inComment) {
         inLineComment = true;
       }
@@ -88,8 +141,8 @@ const splitSqlStatements = (sql: string): string[] => {
       continue;
     }
     
-    // Track parenthesis level for CREATE TABLE statements
-    if (!inString && !inComment && !inLineComment) {
+    // Track parenthesis level for CREATE TABLE statements (not inside any string)
+    if (!inString && !inDollarString && !inComment && !inLineComment) {
       if (char === '(') {
         parenLevel++;
       } else if (char === ')') {
@@ -100,8 +153,8 @@ const splitSqlStatements = (sql: string): string[] => {
     // Add character to current statement
     currentStatement += char;
     
-    // Check for statement terminator (semicolon) outside of strings and parentheses
-    if (char === ';' && !inString && !inComment && !inLineComment && parenLevel === 0) {
+    // Check for statement terminator (semicolon) outside of all string types and parentheses
+    if (char === ';' && !inString && !inDollarString && !inComment && !inLineComment && parenLevel === 0) {
       // Trim whitespace and add to statements if not empty
       const trimmedStatement = currentStatement.trim();
       if (trimmedStatement) {
