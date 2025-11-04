@@ -37,6 +37,88 @@ const findMigrationsDir = () => {
   return possiblePaths[0]; // Return the first path as fallback
 };
 
+// Function to split SQL file into individual statements
+const splitSqlStatements = (sql: string): string[] => {
+  const statements: string[] = [];
+  let currentStatement = '';
+  let inString = false;
+  let stringChar = '';
+  let inComment = false;
+  let inLineComment = false;
+  let parenLevel = 0;
+  
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+    const prevChar = sql[i - 1];
+    
+    // Handle string literals
+    if (!inComment && !inLineComment && (char === "'" || char === '"')) {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar && prevChar !== '\\') {
+        inString = false;
+        stringChar = '';
+      }
+    }
+    
+    // Handle comments
+    if (!inString) {
+      if (char === '-' && nextChar === '-' && !inComment) {
+        inLineComment = true;
+      }
+      if (char === '/' && nextChar === '*' && !inLineComment) {
+        inComment = true;
+      }
+      if (char === '*' && nextChar === '/' && inComment) {
+        inComment = false;
+        currentStatement += char + nextChar;
+        i++; // Skip next character
+        continue;
+      }
+      if (char === '\n' && inLineComment) {
+        inLineComment = false;
+      }
+    }
+    
+    // Skip content in comments
+    if (inComment || inLineComment) {
+      currentStatement += char;
+      continue;
+    }
+    
+    // Track parenthesis level for CREATE TABLE statements
+    if (!inString && !inComment && !inLineComment) {
+      if (char === '(') {
+        parenLevel++;
+      } else if (char === ')') {
+        parenLevel--;
+      }
+    }
+    
+    // Add character to current statement
+    currentStatement += char;
+    
+    // Check for statement terminator (semicolon) outside of strings and parentheses
+    if (char === ';' && !inString && !inComment && !inLineComment && parenLevel === 0) {
+      // Trim whitespace and add to statements if not empty
+      const trimmedStatement = currentStatement.trim();
+      if (trimmedStatement) {
+        statements.push(trimmedStatement);
+      }
+      currentStatement = '';
+    }
+  }
+  
+  // Add any remaining content
+  if (currentStatement.trim()) {
+    statements.push(currentStatement.trim());
+  }
+  
+  return statements;
+};
+
 // Run migration files in order
 export const runMigrations = async () => {
   try {
@@ -75,7 +157,17 @@ export const runMigrations = async () => {
         
         await client.query('BEGIN');
         try {
-          await client.query(migrationSQL);
+          // Split SQL into individual statements and execute them sequentially
+          const statements = splitSqlStatements(migrationSQL);
+          
+          for (let i = 0; i < statements.length; i++) {
+            const statement = statements[i].trim();
+            if (statement) {
+              console.log(`Executing statement ${i + 1}/${statements.length}`);
+              await client.query(statement);
+            }
+          }
+          
           await client.query('INSERT INTO migrations (filename) VALUES ($1)', [file]);
           await client.query('COMMIT');
           console.log(`Migration ${file} completed successfully`);

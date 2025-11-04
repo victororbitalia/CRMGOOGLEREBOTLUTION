@@ -2,7 +2,18 @@
 
 -- Create tables for reservations, tables, and settings
 
--- Reservations table
+-- Tables table (created first to avoid foreign key reference issues)
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    capacity INTEGER NOT NULL CHECK (capacity > 0),
+    zone VARCHAR(50) NOT NULL CHECK (zone IN ('Indoors', 'Outdoors', 'Terrace', 'Private')),
+    status VARCHAR(50) NOT NULL DEFAULT 'Available' CHECK (status IN ('Available', 'Occupied', 'Reserved')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Reservations table (created after restaurant_tables to reference it)
 CREATE TABLE IF NOT EXISTS reservations (
     id SERIAL PRIMARY KEY,
     customer_name VARCHAR(255) NOT NULL,
@@ -13,17 +24,6 @@ CREATE TABLE IF NOT EXISTS reservations (
     notes TEXT,
     table_id INTEGER REFERENCES restaurant_tables(id) ON DELETE SET NULL,
     notification_sent BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tables table
-CREATE TABLE IF NOT EXISTS restaurant_tables (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    capacity INTEGER NOT NULL CHECK (capacity > 0),
-    zone VARCHAR(50) NOT NULL CHECK (zone IN ('Indoors', 'Outdoors', 'Terrace', 'Private')),
-    status VARCHAR(50) NOT NULL DEFAULT 'Available' CHECK (status IN ('Available', 'Occupied', 'Reserved')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
