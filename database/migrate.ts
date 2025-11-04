@@ -6,6 +6,37 @@ import { USE_MOCK_DATA } from './config';
 // Get the current directory for ES modules
 const __dirname = path.dirname(new URL(import.meta.url).pathname).substring(1);
 
+// Helper function to find the migrations directory
+const findMigrationsDir = () => {
+  // List of possible paths to check in order of preference
+  const possiblePaths = [
+    // Standard path based on __dirname
+    path.join(__dirname, 'migrations'),
+    // Container-specific paths
+    path.join('/app', 'database', 'migrations'),
+    path.join('/app', 'app', 'database', 'migrations'),
+    // Relative to current working directory
+    path.join(process.cwd(), 'database', 'migrations'),
+    path.join(process.cwd(), 'app', 'database', 'migrations'),
+    // Fallback paths
+    path.join(process.cwd(), 'dist', 'database', 'migrations'),
+    'database/migrations',
+    'app/database/migrations'
+  ];
+
+  for (const dirPath of possiblePaths) {
+    if (fs.existsSync(dirPath)) {
+      console.log(`Found migrations directory at: ${dirPath}`);
+      return dirPath;
+    }
+  }
+
+  // If none of the paths exist, return the most likely one and let the error occur
+  console.log('Migrations directory not found in any of the expected paths');
+  console.log('Checked paths:', possiblePaths);
+  return possiblePaths[0]; // Return the first path as fallback
+};
+
 // Run migration files in order
 export const runMigrations = async () => {
   try {
@@ -25,9 +56,9 @@ export const runMigrations = async () => {
       )
     `);
     
-    // Get migration files
-    const migrationsDir = path.join(__dirname, 'migrations');
-    const migrationFiles = fs.readdirSync(migrationsDir)
+    // Get migration files using the helper function
+    const finalMigrationsDir = findMigrationsDir();
+    const migrationFiles = fs.readdirSync(finalMigrationsDir)
       .filter(file => file.endsWith('.sql'))
       .sort();
     
@@ -39,7 +70,7 @@ export const runMigrations = async () => {
     for (const file of migrationFiles) {
       if (!executedMigrations.includes(file)) {
         console.log(`Running migration: ${file}`);
-        const filePath = path.join(migrationsDir, file);
+        const filePath = path.join(finalMigrationsDir, file);
         const migrationSQL = fs.readFileSync(filePath, 'utf8');
         
         await client.query('BEGIN');
@@ -90,7 +121,8 @@ export const rollbackLastMigration = async () => {
     
     // Check if rollback file exists
     const rollbackFile = lastMigration.replace('.sql', '_rollback.sql');
-    const rollbackPath = path.join(__dirname, 'migrations', rollbackFile);
+    const migrationsDir = findMigrationsDir();
+    const rollbackPath = path.join(migrationsDir, rollbackFile);
     
     if (!fs.existsSync(rollbackPath)) {
       console.log(`No rollback file found for ${lastMigration}`);
@@ -140,8 +172,9 @@ export const getMigrationStatus = async () => {
 
     const client = await pool.connect();
     
-    // Get all migration files
-    const migrationsDir = path.join(__dirname, 'migrations');
+    // Get all migration files using the helper function
+    const migrationsDir = findMigrationsDir();
+    
     const migrationFiles = fs.readdirSync(migrationsDir)
       .filter(file => file.endsWith('.sql') && !file.endsWith('_rollback.sql'))
       .sort();
