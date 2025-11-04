@@ -1,9 +1,28 @@
 import dotenv from 'dotenv';
-import { resolve } from 'path';
 
-// Cargar variables de entorno
-dotenv.config({ path: resolve('.env.local') });
-dotenv.config(); // Cargar también .env si existe
+// Cargar variables de entorno con manejo compatible con browser
+// In browser environments, dotenv won't work anyway, so we just skip it
+// In Node.js environments, we load environment variables directly
+
+// Check if we're in a Node.js environment (server-side)
+if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.node) {
+  try {
+    // Load environment variables directly without path resolution
+    // This works because dotenv defaults to looking for .env in the current directory
+    dotenv.config();
+    
+    // Try to load .env.local if it exists (without path.resolve)
+    try {
+      dotenv.config({ path: '.env.local' });
+    } catch (error) {
+      // .env.local doesn't exist or can't be loaded, which is fine
+      console.debug('.env.local file not found or could not be loaded');
+    }
+  } catch (error) {
+    console.warn('Failed to load environment variables:', error);
+  }
+}
+// In browser environment, we don't load dotenv as it won't work anyway
 
 // Configuration to determine if we should use the real database or mock data
 // IMPORTANTE: Para producción, USE_MOCK_DATA debe ser 'false'
