@@ -70,8 +70,8 @@ start_app() {
     
     # Iniciar la aplicación
     if [ "$NODE_ENV" = "production" ]; then
-        # En producción, usar el archivo construido
-        exec node dist/index.js
+        # En producción, usar el servidor Express
+        exec npm start
     else
         # En desarrollo, usar el servidor de desarrollo
         exec npm run dev

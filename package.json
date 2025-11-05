@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx tsx scripts/validate-env.ts && npx vite",
     "build": "npx tsx scripts/validate-env.ts && npx vite build",
+    "start": "node server.js",
     "preview": "npx vite preview",
     "validate-env": "npx tsx scripts/validate-env.ts",
     "validate-deployment": "npx tsx scripts/validate-deployment.ts",
@@ -19,6 +20,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "dotenv": "^16.3.1",
     "esbuild": "^0.25.11",
+    "express": "^4.18.2",
     "pg": "^8.11.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

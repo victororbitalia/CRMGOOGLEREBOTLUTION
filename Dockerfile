@@ -58,6 +58,7 @@ RUN npm ci --include=dev && npm cache clean --force
 # Copiar los archivos construidos desde la etapa de construcción
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/database ./database
+COPY --from=builder --chown=nodejs:nodejs /app/server.js ./server.js
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copiar el script de inicio y hacerlo ejecutable
