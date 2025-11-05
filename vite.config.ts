@@ -20,6 +20,23 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      // Externalizar módulos de Node.js que no deben ser incluidos en el bundle del cliente
+      external: [
+        'pg',
+        'pg-native',
+        'pg-pool',
+        'dotenv',
+        'fs',
+        'path',
+        'crypto',
+        'util',
+        'stream',
+        'string_decoder',
+        'events',
+        'net',
+        'tls',
+        'dns'
+      ],
       define: {
         // Variables de entorno del cliente
         ...Object.keys(clientEnv).reduce((acc, key) => {
@@ -72,6 +89,23 @@ export default defineConfig(({ mode }) => {
         minify: mode === 'production' ? 'terser' : false,
         // Optimización del tamaño del bundle
         rollupOptions: {
+          // Externalizar módulos de Node.js que no deben ser incluidos en el bundle del cliente
+          external: [
+            'pg',
+            'pg-native',
+            'pg-pool',
+            'dotenv',
+            'fs',
+            'path',
+            'crypto',
+            'util',
+            'stream',
+            'string_decoder',
+            'events',
+            'net',
+            'tls',
+            'dns'
+          ],
           output: {
             manualChunks: {
               // Separar vendor libraries
